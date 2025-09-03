@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ad Tracker - Live Database</title>
+    <style>
+        /* CSS styles are the same, no changes needed here */
+        :root {
+            --accent-color: #007aff; --background-color: #f5f6f8; --surface-color: #ffffff; --input-background: #ffffff; --text-primary: #1d1d1f; --text-secondary: #6e6e73; --border-color: #e5e5e5; --danger-color: #e57373; --success-color: #81c784; --border-radius-md: 12px; --border-radius-sm: 8px; --shadow-soft: 0 4px 12px rgba(0, 0, 0, 0.08);
+        }
+        body[data-theme="dark"] {
+            --accent-color: #40c8c0; --background-color: #1c1c1e; --surface-color: #2c2c2e; --input-background: #3a3a3c; --text-primary: rgba(255, 255, 255, 0.95); --text-secondary: rgba(255, 255, 255, 0.6); --border-color: #424245; --shadow-soft: none;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: var(--background-color); color: var(--text-primary); padding: 20px; transition: background-color 0.3s ease, color 0.3s ease; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+        .container { max-width: 1500px; margin: 0 auto; background: var(--surface-color); border-radius: var(--border-radius-md); box-shadow: var(--shadow-soft); overflow: hidden; border: 1px solid var(--border-color); transition: background-color 0.3s ease, border-color 0.3s ease; }
+        .theme-btn { position: fixed; top: 20px; left: 20px; width: 44px; height: 44px; background-color: var(--surface-color); color: var(--text-secondary); border: 1px solid var(--border-color); border-radius: 50%; cursor: pointer; font-size: 20px; display: flex; align-items: center; justify-content: center; z-index: 1000; transition: all 0.3s ease; }
+        .theme-btn:hover { border-color: var(--accent-color); color: var(--accent-color); }
+        .tabs { display: flex; border-bottom: 1px solid var(--border-color); padding: 0 25px; }
+        .tab { padding: 18px 0; margin-right: 25px; background: transparent; color: var(--text-secondary); cursor: pointer; border: none; border-bottom: 2px solid transparent; font-size: 15px; font-weight: 600; transition: all 0.2s ease-in-out; }
+        .tab.active { color: var(--accent-color); border-bottom-color: var(--accent-color); }
+        .tab:hover:not(.active) { color: var(--text-primary); }
+        .tab-content { display: none; padding: 30px; }
+        .tab-content.active { display: block; }
+        .section-title { font-size: 22px; font-weight: 700; color: var(--text-primary); margin-bottom: 20px; }
+        .table-container { overflow-x: auto; border: 1px solid var(--border-color); border-radius: var(--border-radius-md); margin-bottom: 20px; background-color: var(--background-color); }
+        table { width: 100%; border-collapse: collapse; font-size: 14px; min-width: 1200px; }
+        th { background: transparent; color: var(--text-secondary); padding: 16px 12px; text-align: left; font-weight: 600; border-bottom: 1px solid var(--border-color); text-transform: uppercase; font-size: 12px; letter-spacing: 0.5px; }
+        td { padding: 14px 12px; border-bottom: 1px solid var(--border-color); vertical-align: middle; color: var(--text-primary); }
+        tr:last-child td { border-bottom: none; }
+        tr:hover { background-color: rgba(120, 120, 128, 0.08); }
+        input, select { width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: var(--border-radius-sm); font-size: 14px; background-color: var(--input-background); color: var(--text-primary); transition: all 0.2s ease-in-out; }
+        input:focus, select:focus { outline: none; border-color: var(--accent-color); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-color) 30%, transparent); }
+        .currency { color: var(--text-primary); font-weight: 600; }
+        .dashboard { display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 25px; margin-top: 30px; }
+        .summary-card, .chart-container { background: var(--surface-color); border: 1px solid var(--border-color); border-radius: var(--border-radius-md); padding: 25px; box-shadow: var(--shadow-soft); transition: background-color 0.3s ease, border-color 0.3s ease; }
+        .summary-title, .chart-title { font-size: 18px; font-weight: 600; margin-bottom: 20px; text-align: center; color: var(--text-primary); }
+        .summary-item { display: flex; justify-content: space-between; align-items: center; padding: 14px 0; border-bottom: 1px solid var(--border-color); }
+        .summary-item:last-child { border-bottom: none; }
+        .summary-label { font-weight: 500; color: var(--text-secondary); }
+        .summary-value { font-size: 18px; font-weight: 600; color: var(--text-primary); }
+        .pie-chart { width: 100%; max-width: 300px; height: 300px; margin: 0 auto; }
+        .chart-legend { margin-top: 20px; display: flex; justify-content: center; flex-wrap: wrap; gap: 15px; }
+        .legend-item { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-secondary); }
+        .legend-color { width: 16px; height: 16px; border-radius: 4px; }
+        .add-row-btn { background-color: var(--accent-color); color: var(--surface-color); border: none; padding: 10px 20px; border-radius: var(--border-radius-sm); cursor: pointer; font-size: 14px; font-weight: 600; transition: background-color 0.2s ease-in-out; }
+        .export-btn { background-color: var(--accent-color); color: var(--surface-color); border: none; padding: 12px 24px; border-radius: 50px; cursor: pointer; font-size: 14px; font-weight: 600; transition: background-color 0.2s ease-in-out; position: fixed; top: 20px; right: 20px; z-index: 1000; }
+        .add-row-btn:hover, .export-btn:hover { background-color: color-mix(in srgb, var(--accent-color) 85%, #000); }
+        .delete-btn { background: none; border: none; font-size: 18px; cursor: pointer; color: var(--text-secondary); width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; transition: all 0.2s ease-in-out; }
+        .delete-btn:hover { background-color: color-mix(in srgb, var(--danger-color) 15%, transparent); color: var(--danger-color); }
+        .delete-column { width: 50px; text-align: center; }
+        .platform-column { width: 150px; }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+<body>
+    <button id="theme-toggle" class="theme-btn" title="Toggle Theme">🌙</button>
+    <button class="export-btn" onclick="exportToExcel()">📥 Export to Excel</button>
+    
+    <div class="container">
+        <div class="tabs">
+            <button class="tab active" onclick="showTab(event, 'adTracker')">📊 Ad Tracker</button>
+            <button class="tab" onclick="showTab(event, 'deposits')">💰 Deposits</button>
+        </div>
+        <div id="adTracker" class="tab-content active">
+            <div class="sheet-section">
+                <div class="section-title">Campaign Tracking</div>
+                <div class="table-container">
+                    <table id="campaignTable">
+                        <thead><tr><th>Campaign Name</th><th class="platform-column">Platform</th><th>Daily Budget (₺)</th><th>Start Date</th><th>End Date</th><th>Status</th><th>Total Spent (₺)</th><th class="delete-column"></th></tr></thead>
+                        <tbody id="campaign-tbody"></tbody>
+                    </table>
+                </div>
+                <button class="add-row-btn" onclick="addCampaignRow()">+ Add New Campaign</button>
+            </div>
+            <div class="dashboard">
+                <div class="summary-card">
+                    <div class="summary-title">📊 Financial Summary</div>
+                    <div class="summary-item"><span class="summary-label">Total Deposited:</span><span class="summary-value" id="totalDeposited">₺0.00</span></div>
+                    <div class="summary-item"><span class="summary-label">Total Spent:</span><span class="summary-value" id="totalSpent">₺0.00</span></div>
+                    <div class="summary-item"><span class="summary-label">Remaining Credit:</span><span class="summary-value" id="remainingCredit">₺0.00</span></div>
+                </div>
+                <div class="chart-container">
+                    <div class="chart-title">Budget Visualization</div>
+                    <div class="pie-chart"><canvas id="pieChart" width="300" height="300"></canvas></div>
+                    <div class="chart-legend">
+                        <div class="legend-item"><div class="legend-color" style="background-color: var(--danger-color);"></div><span>Amount Spent</span></div>
+                        <div class="legend-item"><div class="legend-color" style="background-color: var(--success-color);"></div><span>Remaining Credit</span></div>
+                    </div>
+                </div>
+                <div class="chart-container">
+                    <div class="chart-title">Expenditure by Platform</div>
+                    <div class="pie-chart"><canvas id="platformSpentChartAdTracker" width="300" height="300"></canvas></div>
+                </div>
+            </div>
+        </div>
+        <div id="deposits" class="tab-content">
+            <div class="sheet-section">
+                <div class="section-title">Deposit History</div>
+                <div class="table-container">
+                    <table id="depositsTable">
+                        <thead><tr><th>Deposit Date</th><th class="platform-column">Platform</th><th>Amount Deposited (₺)</th><th>Notes</th><th class="delete-column"></th></tr></thead>
+                        <tbody id="deposits-tbody"></tbody>
+                    </table>
+                </div>
+                <button class="add-row-btn" onclick="addDepositRow()">+ Add New Deposit</button>
+            </div>
+            <div class="dashboard">
+                 <div class="chart-container">
+                    <div class="chart-title">Expenditure by Platform</div>
+                    <div class="pie-chart"><canvas id="platformSpentChartDeposits" width="300" height="300"></canvas></div>
+                </div>
+                <div class="chart-container">
+                    <div class="chart-title">Deposit by Platform</div>
+                    <div class="pie-chart"><canvas id="platformDepositChart" width="300" height="300"></canvas></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
+    <script>
+        // --- NEW: Firebase Initialization ---
+        // IMPORTANT: Replace this with your own Firebase project configuration!
+        const firebaseConfig = {
+            apiKey: "PASTE_YOUR_API_KEY_HERE",
+            authDomain: "PASTE_YOUR_AUTH_DOMAIN_HERE",
+            projectId: "PASTE_YOUR_PROJECT_ID_HERE",
+            storageBucket: "PASTE_YOUR_STORAGE_BUCKET_HERE",
+            messagingSenderId: "PASTE_YOUR_SENDER_ID_HERE",
+            appId: "PASTE_YOUR_APP_ID_HERE"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        // --- End Firebase Initialization ---
+
+        // --- NEW: Data is stored in arrays, not just HTML ---
+        let campaigns = [];
+        let deposits = [];
+
+        // --- NEW: Function to save all data to Firebase ---
+        async function saveData() {
+            try {
+                await db.collection('adTrackerData').doc('main').set({
+                    campaigns: campaigns,
+                    deposits: deposits
+                });
+            } catch (error) {
+                console.error("Error saving data: ", error);
+                alert("Could not save data to the cloud. Check console for errors.");
+            }
+        }
+
+        // --- NEW: Master function to draw everything based on the data arrays ---
+        function renderAll() {
+            renderCampaigns();
+            renderDeposits();
+            updateSummary(); // This will also update all charts
+        }
+
+        function renderCampaigns() {
+            const tbody = document.getElementById('campaign-tbody');
+            tbody.innerHTML = ''; // Clear existing table
+            campaigns.forEach(campaign => {
+                const row = tbody.insertRow();
+                row.innerHTML = `
+                    <td><input type="text" value="${campaign.name}" onchange="updateCampaign(${campaign.id}, 'name', this.value)"></td>
+                    <td class="platform-column">
+                        <select onchange="updateCampaign(${campaign.id}, 'platform', this.value)">
+                            <option ${campaign.platform === 'Facebook' ? 'selected' : ''} value="Facebook">📘 Facebook</option>
+                            <option ${campaign.platform === 'Instagram' ? 'selected' : ''} value="Instagram">📷 Instagram</option>
+                            <option ${campaign.platform === 'TikTok' ? 'selected' : ''} value="TikTok">🎵 TikTok</option>
+                            <option ${campaign.platform === 'Google Ads' ? 'selected' : ''} value="Google Ads">🔍 Google Ads</option>
+                            <option ${campaign.platform === 'YouTube' ? 'selected' : ''} value="YouTube">📺 YouTube</option>
+                            <option ${campaign.platform === 'LinkedIn' ? 'selected' : ''} value="LinkedIn">💼 LinkedIn</option>
+                        </select>
+                    </td>
+                    <td><input type="number" value="${campaign.budget}" onchange="updateCampaign(${campaign.id}, 'budget', parseFloat(this.value))"></td>
+                    <td><input type="date" value="${campaign.startDate}" onchange="updateCampaign(${campaign.id}, 'startDate', this.value)"></td>
+                    <td><input type="date" value="${campaign.endDate}" onchange="updateCampaign(${campaign.id}, 'endDate', this.value)"></td>
+                    <td>
+                        <select onchange="updateCampaign(${campaign.id}, 'status', this.value)">
+                            <option ${campaign.status === 'Active' ? 'selected' : ''} value="Active">✅ Active</option>
+                            <option ${campaign.status === 'Ended' ? 'selected' : ''} value="Ended">🔴 Ended</option>
+                        </select>
+                    </td>
+                    <td class="currency" id="spent-${campaign.id}">₺0.00</td>
+                    <td class="delete-column"><button class="delete-btn" onclick="deleteCampaign(${campaign.id})">🗑️</button></td>
+                `;
+            });
+        }
+        
+        function renderDeposits() {
+            const tbody = document.getElementById('deposits-tbody');
+            tbody.innerHTML = '';
+            deposits.forEach(deposit => {
+                const row = tbody.insertRow();
+                row.innerHTML = `
+                    <td><input type="date" value="${deposit.date}" onchange="updateDeposit(${deposit.id}, 'date', this.value)"></td>
+                    <td class="platform-column">
+                         <select onchange="updateDeposit(${deposit.id}, 'platform', this.value)">
+                            <option ${deposit.platform === 'Facebook' ? 'selected' : ''} value="Facebook">📘 Facebook</option>
+                            <option ${deposit.platform === 'Instagram' ? 'selected' : ''} value="Instagram">📷 Instagram</option>
+                            <option ${deposit.platform === 'TikTok' ? 'selected' : ''} value="TikTok">🎵 TikTok</option>
+                            <option ${deposit.platform === 'Google Ads' ? 'selected' : ''} value="Google Ads">🔍 Google Ads</option>
+                            <option ${deposit.platform === 'YouTube' ? 'selected' : ''} value="YouTube">📺 YouTube</option>
+                            <option ${deposit.platform === 'LinkedIn' ? 'selected' : ''} value="LinkedIn">💼 LinkedIn</option>
+                        </select>
+                    </td>
+                    <td><input type="number" value="${deposit.amount}" onchange="updateDeposit(${deposit.id}, 'amount', parseFloat(this.value))"></td>
+                    <td><input type="text" value="${deposit.notes}" onchange="updateDeposit(${deposit.id}, 'notes', this.value)"></td>
+                    <td class="delete-column"><button class="delete-btn" onclick="deleteDeposit(${deposit.id})">🗑️</button></td>
+                `;
+            });
+        }
+
+        // --- NEW: Functions to add/update/delete data now modify the arrays and save ---
+        function addCampaignRow() {
+            const newCampaign = {
+                id: Date.now(), // Use timestamp for a unique ID
+                name: 'New Campaign',
+                platform: 'Facebook',
+                budget: 50,
+                startDate: new Date().toISOString().split('T')[0], // Today's date
+                endDate: '',
+                status: 'Active'
+            };
+            campaigns.push(newCampaign);
+            saveData();
+        }
+
+        function addDepositRow() {
+            const newDeposit = {
+                id: Date.now(),
+                date: new Date().toISOString().split('T')[0],
+                platform: 'Facebook',
+                amount: 1000,
+                notes: 'New Deposit'
+            };
+            deposits.push(newDeposit);
+            saveData();
+        }
+        
+        function updateCampaign(id, field, value) {
+            const campaign = campaigns.find(c => c.id === id);
+            if (campaign) {
+                campaign[field] = value;
+                saveData();
+            }
+        }
+
+        function updateDeposit(id, field, value) {
+            const deposit = deposits.find(d => d.id === id);
+            if (deposit) {
+                deposit[field] = value;
+                saveData();
+            }
+        }
+
+        function deleteCampaign(id) {
+            if (confirm('Are you sure you want to delete this campaign?')) {
+                campaigns = campaigns.filter(c => c.id !== id);
+                saveData();
+            }
+        }
+
+        function deleteDeposit(id) {
+            if (confirm('Are you sure you want to delete this deposit?')) {
+                deposits = deposits.filter(d => d.id !== id);
+                saveData();
+            }
+        }
+
+        // --- REVISED: updateSummary now reads from data arrays ---
+        function updateSummary() {
+            let totalDeposited = 0;
+            deposits.forEach(deposit => totalDeposited += deposit.amount || 0);
+
+            let totalSpent = 0;
+            campaigns.forEach(campaign => {
+                const spent = calculateSpentForCampaign(campaign);
+                totalSpent += spent;
+                const spentCell = document.getElementById(`spent-${campaign.id}`);
+                if (spentCell) {
+                    spentCell.textContent = `₺${spent.toFixed(2)}`;
+                }
+            });
+            
+            const remainingCredit = totalDeposited - totalSpent;
+            
+            document.getElementById('totalDeposited').textContent = `₺${totalDeposited.toFixed(2)}`;
+            document.getElementById('totalSpent').textContent = `₺${totalSpent.toFixed(2)}`;
+            document.getElementById('remainingCredit').textContent = `₺${remainingCredit.toFixed(2)}`;
+            
+            updatePieChart(totalSpent, remainingCredit);
+            updatePlatformCharts(); // Simplified chart updates
+        }
+
+        function calculateSpentForCampaign(campaign) {
+            const budget = campaign.budget || 0;
+            const startDate = new Date(campaign.startDate);
+            const endDate = new Date(campaign.endDate);
+            let spent = 0;
+
+            if (campaign.startDate) {
+                if (campaign.status === 'Active') {
+                    const timeDiff = new Date().getTime() - startDate.getTime();
+                    const daysDiff = Math.max(1, Math.ceil(timeDiff / (1000 * 3600 * 24)));
+                    spent = daysDiff * budget;
+                } else if (campaign.status === 'Ended' && campaign.endDate && endDate >= startDate) {
+                    const timeDiff = endDate.getTime() - startDate.getTime();
+                    const daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24)) + 1;
+                    spent = daysDiff * budget;
+                }
+            }
+            return spent;
+        }
+
+        function updatePlatformCharts() {
+            // Calculate platform spending
+            const platformSpending = {};
+            campaigns.forEach(c => {
+                const spent = calculateSpentForCampaign(c);
+                if (c.platform && spent > 0) {
+                    platformSpending[c.platform] = (platformSpending[c.platform] || 0) + spent;
+                }
+            });
+
+            // Calculate platform deposits
+            const platformDeposits = {};
+            deposits.forEach(d => {
+                if (d.platform && d.amount > 0) {
+                    platformDeposits[d.platform] = (platformDeposits[d.platform] || 0) + d.amount;
+                }
+            });
+            
+            const isDarkMode = document.body.dataset.theme === 'dark';
+            const expenditureColors = isDarkMode ? ['#40c8c0', '#ff9f40', '#ef5350', '#ab47bc', '#7e57c2', '#5c6bc0'] : ['#007aff', '#ff9500', '#34c759', '#af52de', '#5856d6', '#ff2d55'];
+            const depositColors = isDarkMode ? ['#32d74b', '#ff9f40', '#40c8c0', '#ab47bc', '#ef5350', '#5c6bc0'] : ['#34c759', '#ff9500', '#007aff', '#af52de', '#ff2d55', '#5856d6'];
+
+            drawPieChartWithLabels('platformSpentChartAdTracker', platformSpending, expenditureColors);
+            drawPieChartWithLabels('platformSpentChartDeposits', platformSpending, expenditureColors);
+            drawPieChartWithLabels('platformDepositChart', platformDeposits, depositColors);
+        }
+
+        // --- Theme Toggle Logic (No Changes) ---
+        const themeToggle = document.getElementById('theme-toggle');
+        const body = document.body;
+        themeToggle.addEventListener('click', () => {
+            if (body.dataset.theme === 'dark') {
+                body.removeAttribute('data-theme');
+                localStorage.setItem('theme', 'light');
+                themeToggle.textContent = '🌙';
+            } else {
+                body.dataset.theme = 'dark';
+                localStorage.setItem('theme', 'dark');
+                themeToggle.textContent = '☀️';
+            }
+            renderAll(); 
+        });
+
+        // --- Other functions (No changes or minor tweaks) ---
+        function showTab(a,b){document.querySelectorAll(".tab-content").forEach(c=>c.classList.remove("active")),document.querySelectorAll(".tab").forEach(c=>c.classList.remove("active")),document.getElementById(b).classList.add("active"),a.currentTarget.classList.add("active")}
+        function drawPieChartWithLabels(a,b,c){const d=document.getElementById(a);if(!d)return;const e=d.getContext("2d"),f=Object.values(b).reduce((k,l)=>k+l,0);if(e.clearRect(0,0,d.width,d.height),0===f)return;const g=d.width/2,h=d.height/2,i=Math.min(g,h)-10;let j=-.5*Math.PI,k=0;for(const l in b){const m=b[l],n=(m/f)*2*Math.PI,o=j+n;if(e.beginPath(),e.moveTo(g,h),e.arc(g,h,i,j,o),e.closePath(),e.fillStyle=c[k%c.length],e.fill(),n>.25){const p=j+n/2,q=g+Math.cos(p)*.65*i,r=h+Math.sin(p)*.65*i,s=`₺${m.toFixed(0)}`,t=`(${(m/f*100).toFixed(1)}%)`;e.fillStyle="white",e.font="bold 13px -apple-system",e.textAlign="center",e.fillText(l,q,r-7),e.font="11px -apple-system",e.fillText(`${s} ${t}`,q,r+9)}j=o,k++}}
+        function updatePieChart(a,b){const c=document.getElementById("pieChart"),d=c.getContext("2d"),e=a+b;if(d.clearRect(0,0,c.width,c.height),0===e)return;const f=c.width/2,g=c.height/2,h=Math.min(f,g)-10,i=(a/e)*2*Math.PI,j=getComputedStyle(document.documentElement);d.beginPath(),d.moveTo(f,g),d.arc(f,g,h,-.5*Math.PI,-.5*Math.PI+i),d.closePath(),d.fillStyle=j.getPropertyValue("--danger-color"),d.fill(),d.beginPath(),d.moveTo(f,g),d.arc(f,g,h,-.5*Math.PI+i,1.5*Math.PI),d.closePath(),d.fillStyle=j.getPropertyValue("--success-color"),d.fill();if(a>0){const k=`(${(a/e*100).toFixed(1)}%)`,l=`₺${a.toFixed(0)}`,m=-.5*Math.PI+i/2,n=f+Math.cos(m)*.6*h,o=g+Math.sin(m)*.6*h;d.fillStyle="white",d.font="bold 12px -apple-system",d.textAlign="center",d.fillText(l,n,o-7),d.font="11px -apple-system",d.fillText(k,n,o+9)}if(b>0){const k=`(${(b/e*100).toFixed(1)}%)`,l=`₺${b.toFixed(0)}`,m=-.5*Math.PI+i+(2*Math.PI-i)/2,n=f+Math.cos(m)*.6*h,o=g+Math.sin(m)*.6*h;d.fillStyle="white",d.font="bold 12px -apple-system",d.textAlign="center",d.fillText(l,n,o-7),d.font="11px -apple-system",d.fillText(k,n,o+9)}}
+        function exportToExcel(){const a=XLSX.utils.book_new();const b=[["Campaign Name","Platform","Daily Budget","Start Date","End Date","Status","Total Spent"]];campaigns.forEach(c=>{b.push([c.name,c.platform,c.budget,c.startDate,c.endDate,c.status,calculateSpentForCampaign(c)])}),XLSX.utils.book_append_sheet(a,XLSX.utils.aoa_to_sheet(b),"Ad Tracker");const c=[["Deposit Date","Platform","Amount Deposited","Notes"]];deposits.forEach(d=>{c.push([d.date,d.platform,d.amount,d.notes])}),XLSX.utils.book_append_sheet(a,XLSX.utils.aoa_to_sheet(c),"Deposits"),XLSX.writeFile(a,"Ad_Tracker_Report.xlsx")}
+
+        // --- NEW: Real-time listener to load and sync data ---
+        function setupRealTimeListener() {
+            db.collection('adTrackerData').doc('main').onSnapshot((doc) => {
+                if (doc.exists) {
+                    const data = doc.data();
+                    campaigns = data.campaigns || [];
+                    deposits = data.deposits || [];
+                } else {
+                    // If no data exists in Firestore, start with empty arrays
+                    campaigns = [];
+                    deposits = [];
+                    console.log("No data in Firestore, starting fresh!");
+                }
+                renderAll();
+            });
+        }
+
+        // --- Initialize App ---
+        document.addEventListener('DOMContentLoaded', () => {
+            const savedTheme = localStorage.getItem('theme') || 'light';
+            if (savedTheme === 'dark') {
+                body.dataset.theme = 'dark';
+                themeToggle.textContent = '☀️';
+            }
+            // Start listening for live data from Firebase
+            setupRealTimeListener();
+        });
+    </script>
+</body>
+</html>
